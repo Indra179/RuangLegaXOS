@@ -95,14 +95,13 @@ class MainActivity : Activity() {
         addButton(
             root,
             "1. ANALISIS PENYIMPANAN",
-            "Hanya membaca, tidak menghapus apa pun. Menampilkan aplikasi dengan data dan cache terbesar serta folder terbesar."
+            "Hanya membaca, tidak menghapus apa pun. Menampilkan daftar paket aplikasi dan folder terbesar."
         ) {
             runShell(
                 "1. Analisis penyimpanan",
                 """
-                pkgs=${'$'}(pm list packages | wc -l)
-                echo "Aplikasi terbaca: ${'$'}pkgs"
-                dumpsys diskstats | grep -E "App Size|App Data|Cache" | head -n 3
+                echo "--- Daftar Paket Aplikasi Terbaca ---"
+                pm list packages -3 | cut -d: -f2 | head -n 30
                 echo "--- 10 Folder Terbesar di /sdcard ---"
                 du -m -d 2 /sdcard 2>/dev/null | sort -nr | head -n 10 | awk '{printf "%.2f MB\t%s\n", ${'$'}1, ${'$'}2}'
                 """.trimIndent()
@@ -113,7 +112,7 @@ class MainActivity : Activity() {
         addButton(
             root,
             "2. BERSIHKAN CACHE SEMUA APLIKASI",
-            "Hanya cache (berkas sementara). Data, login, dan berkas pribadi tidak disentuh. Log menampilkan cache tiap aplikasi sebelum dan sesudah."
+            "Hanya cache (berkas sementara). Membersihkan cache sistem dan eksternal aplikasi."
         ) {
             runShell(
                 "2. Bersihkan cache semua aplikasi",
@@ -126,11 +125,10 @@ class MainActivity : Activity() {
                 done
                 after=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
                 diff=${'$'}((after - before))
-                echo "Ruang bebas /data sesudah: ${'$'}{after} MB (Bertambah +${'$'}{diff} MB)"
+                echo "Selesai! Ruang bebas /data sesudah: ${'$'}{after} MB (Bertambah +${'$'}{diff} MB)"
                 """.trimIndent()
             )
         }
-
         // 3. BERSIHKAN CACHE EKSTERNAL
         addButton(
             root,
