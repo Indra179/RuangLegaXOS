@@ -39,7 +39,7 @@ class MainActivity : Activity() {
 
     private val permListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         if (grantResult == PackageManager.PERMISSION_GRANTED) {
-            appendLog("Izin sudah diberikan.")
+            appendLog("Izin Shizuku diberikan.")
             updateHeader()
         } else {
             appendLog("Izin Shizuku ditolak.")
@@ -77,7 +77,7 @@ class MainActivity : Activity() {
 
         addButton(root, "BUKA SHIZUKU", null) {
             val intent = packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
-            if (intent != null) startActivity(intent) else appendLog("Aplikasi Shizuku belum terpasang.")
+            if (intent != null) startActivity(intent) else appendLog("Aplikasi Shizuku tidak ditemukan.")
         }
 
         addButton(root, "BERI IZIN SHIZUKU", null) {
@@ -86,33 +86,35 @@ class MainActivity : Activity() {
             } else if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
                 Shizuku.requestPermission(1001)
             } else {
-                appendLog("Izin sudah diberikan.")
+                appendLog("Izin Shizuku sudah diberikan.")
                 updateHeader()
             }
         }
 
-        // 1. ANALISIS PENYIMPANAN (Persis seperti log asli)
+        // 1. ANALISIS PENYIMPANAN (Fix untuk Infinix: Membaca daftar paket dan folder terbesar langsung)
         addButton(
             root,
             "1. ANALISIS PENYIMPANAN",
-            "Hanya membaca, tidak menghapus apa pun. Menampilkan daftar paket aplikasi dan folder terbesar."
+            "Hanya membaca, tidak menghapus apa pun. Menampilkan daftar aplikasi terinstal dan folder internal terbesar."
         ) {
             runShell(
                 "1. Analisis penyimpanan",
                 """
-                echo "--- Daftar Paket Aplikasi Terbaca ---"
-                pm list packages -3 | cut -d: -f2 | head -n 30
-                echo "--- 10 Folder Terbesar di /sdcard ---"
+                echo "=== JUMLAH APLIKASI PENGGUNA ==="
+                pm list packages -3 | wc -l
+                echo "=== 15 APLIKASI TERATAS ==="
+                pm list packages -3 | cut -d: -f2 | head -n 15
+                echo "=== 10 FOLDER TERBESAR DI /sdcard ==="
                 du -m -d 2 /sdcard 2>/dev/null | sort -nr | head -n 10 | awk '{printf "%.2f MB\t%s\n", ${'$'}1, ${'$'}2}'
                 """.trimIndent()
             )
         }
 
-        // 2. BERSIHKAN CACHE SEMUA APLIKASI
+        // 2. BERSIHKAN CACHE SEMUA APLIKASI (Fix untuk Infinix: Menggunakan trim-caches dan pembersihan mendalam)
         addButton(
             root,
             "2. BERSIHKAN CACHE SEMUA APLIKASI",
-            "Hanya cache (berkas sementara). Membersihkan cache sistem dan eksternal aplikasi."
+            "Hanya cache (berkas sementara). Data, login, dan berkas pribadi tidak disentuh."
         ) {
             runShell(
                 "2. Bersihkan cache semua aplikasi",
@@ -120,7 +122,7 @@ class MainActivity : Activity() {
                 before=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
                 echo "Ruang bebas /data sebelum: ${'$'}{before} MB"
                 pm trim-caches 999999999999999999
-                for d in /sdcard/Android/data/*/cache; do
+                for d in /sdcard/Android/data/*/cache /data/user/0/*/cache; do
                     if [ -d "${'$'}d" ]; then rm -rf "${'$'}d"/* 2>/dev/null; fi
                 done
                 after=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
@@ -129,11 +131,12 @@ class MainActivity : Activity() {
                 """.trimIndent()
             )
         }
+
         // 3. BERSIHKAN CACHE EKSTERNAL
         addButton(
             root,
             "3. BERSIHKAN CACHE EKSTERNAL",
-            "Mengosongkan folder cache di /sdcard/Android/data/<aplikasi>/cache. Log menampilkan tiap folder dan berkas di dalamnya."
+            "Mengosongkan folder cache di /sdcard/Android/data/<aplikasi>/cache."
         ) {
             runShell(
                 "3. Bersihkan cache eksternal",
@@ -150,16 +153,16 @@ class MainActivity : Activity() {
             )
         }
 
-        // 4. BERSIHKAN LOG INFINIX XOS & MTK/UNISOC
+        // 4. BERSIHKAN LOG XOS / INFINIX
         addButton(
             root,
             "4. BERSIHKAN LOG XOS / INFINIX",
-            "Mengosongkan /sdcard/mtklog, debuglogger, tranlog, XOS log, dan buffer logcat di memori."
+            "Mengosongkan /sdcard/mtklog, debuglogger, tranlog, dan buffer logcat di memori."
         ) {
             runShell(
                 "4. Bersihkan log XOS / Infinix",
                 """
-                for logdir in /sdcard/mtklog /sdcard/debuglogger /sdcard/tranlog /sdcard/MIUI/debug_log /sdcard/Android/data/com.transsion.phonemaster/cache; do
+                for logdir in /sdcard/mtklog /sdcard/debuglogger /sdcard/tranlog /sdcard/Android/data/com.transsion.phonemaster/cache; do
                     if [ -d "${'$'}logdir" ]; then
                         du -sh "${'$'}logdir" 2>/dev/null
                         rm -rf "${'$'}logdir"/* 2>/dev/null
@@ -172,21 +175,17 @@ class MainActivity : Activity() {
             )
         }
 
-        // 5. RESET DEXOPT KHUSUS INFINIX (Bypass blokir '-a' & paksa mode verify/clear)
+        // 5. RESET DEXOPT (Fix untuk Infinix: Looping per paket dengan parameter aman tanpa mental)
         addButton(
             root,
             "5. RESET DEXOPT (BYPASS INFINIX XOS)",
-            "Mengembalikan hasil kompilasi aplikasi ke bawaan satu per satu agar tidak diblokir XOS. Bisa beberapa menit. Tidak menghapus berkas pribadi."
+            "Mengembalikan hasil kompilasi aplikasi ke bawaan satu per satu agar tidak diblokir XOS."
         ) {
             runShell(
                 "5. Reset dexopt (Mode Infinix XOS)",
                 """
                 before=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
                 echo "Ruang bebas awal: ${'$'}{before} MB"
-                echo "Mencoba reset massal..."
-                cmd package compile --reset -a >/dev/null 2>&1
-                
-                echo "Menjalankan reset & paksa mode verify per aplikasi (Bypass XOS)..."
                 pkgs=${'$'}(pm list packages -3 | cut -d: -f2 | tr -d '\r')
                 total=${'$'}(echo "${'$'}pkgs" | wc -l)
                 i=0
@@ -194,8 +193,7 @@ class MainActivity : Activity() {
                     i=${'$'}((i + 1))
                     r1=${'$'}(cmd package compile --reset "${'$'}p" 2>&1)
                     r2=${'$'}(cmd package compile -m verify -f "${'$'}p" 2>&1)
-                    cmd package bg-dexopt-job --cancel >/dev/null 2>&1
-                    echo "[${'$'}i/${'$'}total] ${'$'}p: reset=${'$'}r1 | verify=${'$'}r2"
+                    echo "[${'$'}i/${'$'}total] ${'$'}p -> reset: ${'$'}r1 | verify: ${'$'}r2"
                 done
                 after=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
                 diff=${'$'}((after - before))
@@ -211,7 +209,7 @@ class MainActivity : Activity() {
         }
 
         tvSavedLogInfo = TextView(this).apply {
-            text = "Log lengkap juga disimpan otomatis ke Download/\n$currentLogFileName"
+            text = "Log lengkap disimpan otomatis ke Download/$currentLogFileName"
             setTextColor(Color.parseColor("#8A9199"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setPadding(0, dp(4), 0, dp(12))
@@ -259,7 +257,7 @@ class MainActivity : Activity() {
 
     private fun runShell(title: String, script: String) {
         if (!Shizuku.pingBinder() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            appendLog("Shizuku belum berjalan. Buka aplikasi Shizuku lalu mulai lewat Wireless debugging.")
+            appendLog("Shizuku belum berjalan atau belum diberi izin.")
             return
         }
         appendLog("> $title")
