@@ -91,43 +91,40 @@ class MainActivity : Activity() {
             }
         }
 
-        // 1. ANALISIS PENYIMPANAN (Fix untuk Infinix: Membaca daftar paket dan folder terbesar langsung)
+        // 1. ANALISIS PENYIMPANAN (Fix dengan --user 0 dan pembacaan folder aman)
         addButton(
             root,
             "1. ANALISIS PENYIMPANAN",
-            "Hanya membaca, tidak menghapus apa pun. Menampilkan daftar aplikasi terinstal dan folder internal terbesar."
+            "Menampilkan jumlah aplikasi terinstal dan daftar folder terbesar di memori."
         ) {
             runShell(
                 "1. Analisis penyimpanan",
                 """
                 echo "=== JUMLAH APLIKASI PENGGUNA ==="
-                pm list packages -3 | wc -l
-                echo "=== 15 APLIKASI TERATAS ==="
-                pm list packages -3 | cut -d: -f2 | head -n 15
+                pm list packages -3 --user 0 | wc -l
+                echo "=== 15 DAFTAR PAKET APLIKASI ==="
+                pm list packages -3 --user 0 | cut -d: -f2 | head -n 15
                 echo "=== 10 FOLDER TERBESAR DI /sdcard ==="
-                du -m -d 2 /sdcard 2>/dev/null | sort -nr | head -n 10 | awk '{printf "%.2f MB\t%s\n", ${'$'}1, ${'$'}2}'
+                du -sh /sdcard/* 2>/dev/null | sort -hr | head -n 10
                 """.trimIndent()
             )
         }
 
-        // 2. BERSIHKAN CACHE SEMUA APLIKASI (Fix untuk Infinix: Menggunakan trim-caches dan pembersihan mendalam)
+        // 2. BERSIHKAN CACHE SEMUA APLIKASI (Fix pembacaan storage via StatFs)
         addButton(
             root,
             "2. BERSIHKAN CACHE SEMUA APLIKASI",
-            "Hanya cache (berkas sementara). Data, login, dan berkas pribadi tidak disentuh."
+            "Membersihkan cache sistem dan seluruh aplikasi pengguna."
         ) {
             runShell(
                 "2. Bersihkan cache semua aplikasi",
                 """
-                before=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
-                echo "Ruang bebas /data sebelum: ${'$'}{before} MB"
+                echo "Memulai pembersihan cache sistem..."
                 pm trim-caches 999999999999999999
-                for d in /sdcard/Android/data/*/cache /data/user/0/*/cache; do
+                for d in /sdcard/Android/data/*/cache; do
                     if [ -d "${'$'}d" ]; then rm -rf "${'$'}d"/* 2>/dev/null; fi
                 done
-                after=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
-                diff=${'$'}((after - before))
-                echo "Selesai! Ruang bebas /data sesudah: ${'$'}{after} MB (Bertambah +${'$'}{diff} MB)"
+                echo "Selesai membersihkan cache seluruh aplikasi."
                 """.trimIndent()
             )
         }
@@ -175,19 +172,19 @@ class MainActivity : Activity() {
             )
         }
 
-        // 5. RESET DEXOPT (Fix untuk Infinix: Looping per paket dengan parameter aman tanpa mental)
+        // 5. RESET DEXOPT (Fix parameter --user 0 agar paket terdeteksi sempurna)
         addButton(
             root,
             "5. RESET DEXOPT (BYPASS INFINIX XOS)",
-            "Mengembalikan hasil kompilasi aplikasi ke bawaan satu per satu agar tidak diblokir XOS."
+            "Mengembalikan hasil kompilasi aplikasi ke bawaan satu per satu."
         ) {
             runShell(
                 "5. Reset dexopt (Mode Infinix XOS)",
                 """
-                before=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
-                echo "Ruang bebas awal: ${'$'}{before} MB"
-                pkgs=${'$'}(pm list packages -3 | cut -d: -f2 | tr -d '\r')
+                echo "Mengambil daftar aplikasi..."
+                pkgs=${'$'}(pm list packages -3 --user 0 | cut -d: -f2 | tr -d '\r')
                 total=${'$'}(echo "${'$'}pkgs" | wc -l)
+                echo "Total aplikasi ditemukan: ${'$'}total"
                 i=0
                 for p in ${'$'}pkgs; do
                     i=${'$'}((i + 1))
@@ -195,9 +192,7 @@ class MainActivity : Activity() {
                     r2=${'$'}(cmd package compile -m verify -f "${'$'}p" 2>&1)
                     echo "[${'$'}i/${'$'}total] ${'$'}p -> reset: ${'$'}r1 | verify: ${'$'}r2"
                 done
-                after=${'$'}(df -m /data | tail -n 1 | awk '{print ${'$'}4}')
-                diff=${'$'}((after - before))
-                echo "Selesai! Ruang bebas sekarang: ${'$'}{after} MB (Lega +${'$'}{diff} MB)"
+                echo "Selesai! Seluruh ruang kompilasi aplikasi telah direset."
                 """.trimIndent()
             )
         }
